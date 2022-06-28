@@ -74,7 +74,7 @@ jobs:
           deploy_username=$(echo 배포 주체: ${{ github.actor }})
           deploy_msg=$(echo 배포 내용: ${{ inputs.deploy-message }})
           if [[ "${{ inputs.deploy-to-all-live-devices}}" == "true" ]] ; then target_devices="전체 live 장비"
-          else target_devices=$(echo ${{ inputs.deploy-target-device }} | sed "s/ /, /g"); fi
+          else target_devices=$(echo ${{ inputs.deploy-target-device }} | sed "s/ //g" | sed "s/,/, /g"); fi
           msg="$(echo ${{ inputs.code-name }} 배포가 디바이스에 시작됩니다. 기기에 접속을 멈춰주세요.$'\n'$deploy_username$'\n'배포 기기: $target_devices$'\n'$deploy_msg)"
           result=$(slackboy -m "$msg" -p deploy-process -c "${{ inputs.slack-channel }}")
           IFS=','; result_arr=(${result}); unset IFS;
@@ -125,7 +125,7 @@ jobs:
 
           git archive --format=zip ${{ inputs.deploy-branch }} -o $zip_file_name
           zip --delete $zip_file_name ".github/*" ".gitignore"
-          if [[ -e ${{ inputs.exclude-files-from-zip }} ]]; then zip --delete $zip_file_name ${{ inputs.exclude-files-from-zip }}; fi
+          for delete_file in ${{ inputs.exclude-files-from-zip }}; do if [[ -e $delete_file ]] || [[ -d $delete_file ]]; then zip --delete $zip_file_name $delete_file; fi; done
 
   Deployment-to-each-device:
     name: deploy to each device
