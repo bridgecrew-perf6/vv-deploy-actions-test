@@ -139,7 +139,34 @@ jobs:
     steps:
       - name: send build file
         run: |
-          cat test_path
+          echo ${{ secrets.password }} | sudo -S apt-get install expect oathtool -y
+          action/deploy-file.sh --host ${{ matrix.vpn_ips }} --user ${{ inputs.user }} --password ${{ secrets.password }} --otp ${{ secrets.otp }} --zip-file-name ${{ needs.Build-deploy-file.outputs.zip_file_name }}
+          sleep 10
+      - name: kill running process
+        run: |
+          action/kill-process.sh --host ${{ matrix.vpn_ips }}  --user ${{ inputs.user }} --password ${{ secrets.password }} --otp ${{ secrets.otp }} --process-list ${{ inputs.process-list }}
+          sleep 10
+      - name: install runtime environment
+        run: |
+          action/install-env.sh --host ${{ matrix.vpn_ips }}  --user ${{ inputs.user }} --password ${{ secrets.password }} --otp ${{ secrets.otp }} --zip-file-name ${{ needs.Build-deploy-file.outputs.zip_file_name }} --parent-dir ${{ inputs.parent-dir }} --code-name ${{ inputs.code-name }}
+          sleep 10
+      - name: validate version
+        run: |
+          action/validate-version.sh --host ${{ matrix.vpn_ips }} --user ${{ inputs.user }} --password ${{ secrets.password }} --otp ${{ secrets.otp }} --code-name ${{ inputs.code-name }} --version-file-name ${{ inputs.version-file-name }} --parent-dir ${{ inputs.parent-dir }}
+          sleep 10
+      - name: start new process
+        run: |
+          action/start-process.sh --host ${{ matrix.vpn_ips }}  --user ${{ inputs.user }} --password ${{ secrets.password }} --otp ${{ secrets.otp }} --process-list ${{ inputs.process-list }}
+          sleep 10
+      - name: archive completed host name
+        run: |
+          echo "${{ matrix.vpn_ips }} Deployment Finish!!! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "${{ matrix.vpn_ips }}," >> $file_path
+      - name: inform slackboy of finish
+        run: |
+          device_id=$(edge-info-search --query vpn_ip=="${{ matrix.vpn_ips }}" -c device_id)
+          slackboy -m "$device_id의 작업이 모두 끝났습니다" -c ${{ inputs.slack-channel }} --reply-ts ${{ needs.Inform-slack-of-start.outputs.thread_ts }}
+
 
 
   Complete-device-summary:
