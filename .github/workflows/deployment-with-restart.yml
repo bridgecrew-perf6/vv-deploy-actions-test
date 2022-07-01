@@ -125,7 +125,7 @@ jobs:
 
           git archive --format=zip ${{ inputs.deploy-branch }} -o $zip_file_name
           zip --delete $zip_file_name ".github/*" ".gitignore"
-          for delete_file in ${{ inputs.exclude-files-from-zip }}; do if [[ -e $delete_file ]] || [[ -d $delete_file ]]; then zip --delete $zip_file_name $delete_file; fi; done
+          if [[ -e ${{ inputs.exclude-files-from-zip }} ]]; then zip --delete $zip_file_name ${{ inputs.exclude-files-from-zip }}; fi
 
   Deployment-to-each-device:
     name: deploy to each device
@@ -160,14 +160,13 @@ jobs:
           sleep 10
       - name: archive completed host name
         run: |
-          echo "${{ matrix.vpn_ips }} Deployment Finish!!! :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "${{ matrix.vpn_ips }}," >> $file_path
+          device_id=$(edge-info-search --query vpn_ip=="${{ matrix.vpn_ips }}" -c device_id)
+          echo "$device_id Deployment Finish!!! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "$device_id," >> $file_path
       - name: inform slackboy of finish
         run: |
-          device_id=$(edge-info-search --query vpn_ip=="${{ matrix.vpn_ips }}" -c device_id)
+          
           slackboy -m "$device_id의 작업이 모두 끝났습니다" -c ${{ inputs.slack-channel }} --reply-ts ${{ needs.Inform-slack-of-start.outputs.thread_ts }}
-
-
 
   Complete-device-summary:
     name: process complete summary
@@ -175,12 +174,6 @@ jobs:
     needs: [ Deployment-to-each-device ]
     runs-on: self-hosted
     steps:
-      - name: Checkout the action repository
-        uses: actions/checkout@v2
-        with:
-          repository: teamdable/vv-deploy-actions-test
-          path: action/
-
       - name: success devices
         run: |
           if [[ -e $file_path ]] 
@@ -188,9 +181,6 @@ jobs:
             complete_string=$(cat $file_path)
             echo "complete_string : $complete_string"
             complete_string=$(echo $complete_string | tr ' ' ',')
-            echo "refined string : $complete_string"
-            echo "current list : $(ls -al)"
-            complete_devices=$(action/get-device-id --vpn-ip $complete_string)
             rm -rf $file_path
           else
             complete_devices=""
